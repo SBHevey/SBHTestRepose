@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sarah's Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bleu: #5b8def;
+      --bleu-deep: #0c2150;
+      --bleu-soft: rgba(91, 141, 239, .16);
+      --blanc: #ffffff;
+      --rouge: #ef4155;
+      --ink: #e7ebf3;
+      --muted: #97a1b4;
+      --line: #263049;
+      --bg: #0b1020;
+      --surface: #141b2d;
+      --surface-hover: #182036;
+
+      --live: #3ecf7a;
+      --live-bg: rgba(62, 207, 122, .14);
+      --draft: #a3acbd;
+      --draft-bg: rgba(163, 172, 189, .14);
+      --review: #f2a93b;
+      --review-bg: rgba(242, 169, 59, .15);
+      --blocked: #ff5a6a;
+      --blocked-bg: rgba(255, 90, 106, .15);
+
+      --radius: 14px;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Tricolore stripe */
+    .tricolore {
+      height: 6px;
+      background: linear-gradient(90deg, var(--bleu) 0 33.33%, var(--blanc) 33.33% 66.66%, var(--rouge) 66.66% 100%);
+    }
+
+    header {
+      background: linear-gradient(160deg, var(--bleu-deep), #081634);
+      border-bottom: 1px solid var(--line);
+      color: var(--blanc);
+      padding: 32px 16px 72px;
+    }
+
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+    header .wrap { padding: 0; }
+
+    .eyebrow {
+      font-size: .78rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      opacity: .75;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      margin: 6px 0 4px;
+    }
+
+    header p { opacity: .85; max-width: 60ch; }
+
+    /* Summary bar */
+    .summary {
+      margin-top: -44px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 24px;
+      align-items: center;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stat { padding-left: 12px; border-left: 3px solid var(--c); }
+    .stat .num { font-size: 1.7rem; font-weight: 700; color: var(--c); line-height: 1.1; }
+    .stat .lbl { font-size: .8rem; color: var(--muted); font-weight: 500; }
+
+    /* Launch-ready progress */
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .progress-head .lbl { font-size: .85rem; font-weight: 600; }
+    .progress-head .pct { font-size: 1.7rem; font-weight: 700; color: var(--live); line-height: 1; }
+
+    .bar {
+      display: flex;
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #0a0f1c;
+      border: 1px solid var(--line);
+    }
+
+    .bar span { height: 100%; transition: width .4s ease; }
+    .bar span + span { border-left: 2px solid var(--surface); }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin-top: 10px;
+      font-size: .75rem;
+      color: var(--muted);
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      background: var(--c);
+    }
+
+    /* Search, section and sort controls */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .controls input,
+    .controls select {
+      font: inherit;
+      font-size: .88rem;
+      color: var(--blanc);
+      background: #000000;
+      border: 1px solid #3a4560;
+      border-radius: 10px;
+      padding: 9px 12px;
+      min-width: 0;
+    }
+
+    .controls input { flex: 1 1 260px; }
+    .controls select { flex: 0 1 190px; cursor: pointer; }
+    .controls input::placeholder { color: var(--muted); }
+
+    .controls input:focus,
+    .controls select:focus,
+    .filters button:focus-visible {
+      outline: none;
+      border-color: var(--bleu);
+      box-shadow: 0 0 0 2px var(--bleu);
+    }
+
+    /* Filters */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 28px 0 18px;
+    }
+
+    .toolbar h2 { font-size: 1.1rem; font-weight: 600; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .filters button {
+      font: inherit;
+      font-size: .85rem;
+      font-weight: 500;
+      border: 1px solid #3a4560;
+      background: #000000;
+      color: var(--blanc);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+
+    .filters button:hover { border-color: var(--bleu); }
+
+    .filters button.active {
+      border-color: var(--bleu);
+      box-shadow: 0 0 0 2px var(--bleu);
+      font-weight: 600;
+    }
+
+    /* Card grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+      padding-bottom: 48px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border-left: 5px solid var(--status);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      background: var(--surface-hover);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, .35), 0 10px 24px rgba(0, 0, 0, .45);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .section {
+      font-size: .72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--bleu);
+      background: var(--bleu-soft);
+      padding: 3px 9px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--status);
+      background: var(--status-bg);
+      padding: 4px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .badge::before {
+      content: "";
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .card h3 {
+      font-size: 1.12rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .meta {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      font-size: .85rem;
+      color: var(--muted);
+    }
+
+    .owner { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+    .avatar {
+      flex-shrink: 0;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--bleu);
+      color: var(--blanc);
+      display: grid;
+      place-items: center;
+      font-size: .72rem;
+      font-weight: 700;
+    }
+
+    .owner span { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .date { white-space: nowrap; }
+
+    .s-live    { --status: var(--live);    --status-bg: var(--live-bg); }
+    .s-draft   { --status: var(--draft);   --status-bg: var(--draft-bg); }
+    .s-review  { --status: var(--review);  --status-bg: var(--review-bg); }
+    .s-blocked { --status: var(--blocked); --status-bg: var(--blocked-bg); }
+
+    .empty { color: var(--muted); grid-column: 1 / -1; text-align: center; padding: 40px 0; }
+
+    footer {
+      text-align: center;
+      font-size: .8rem;
+      color: var(--muted);
+      padding: 0 16px 32px;
+    }
+
+    @media (max-width: 860px) {
+      .summary { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 520px) {
+      header { padding: 24px 16px 64px; }
+      .toolbar { flex-direction: column; align-items: flex-start; }
+      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 14px; }
+      .controls select { flex: 1 1 140px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="tricolore"></div>
+  <header>
+    <div class="wrap">
+      <div class="eyebrow">Parc Claude · Website Content</div>
+      <h1>Sarah's Dashboard</h1>
+      <p>Content status for every page on the Parc Claude theme park website.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="summary" aria-label="Summary">
+      <div class="stats" id="stats"></div>
+      <div>
+        <div class="progress-head">
+          <span class="lbl">Launch ready</span>
+          <span class="pct" id="pct">0%</span>
+        </div>
+        <div class="bar" id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </section>
+
+    <div class="controls">
+      <input type="search" id="search" placeholder="Search pages or owners…" aria-label="Search pages or owners">
+      <select id="section" aria-label="Filter by section">
+        <option value="all">All sections</option>
+      </select>
+      <select id="sort" aria-label="Sort by last updated">
+        <option value="newest">Last updated: newest first</option>
+        <option value="oldest">Last updated: oldest first</option>
+      </select>
+    </div>
+
+    <div class="toolbar">
+      <h2 id="count">All pages</h2>
+      <div class="filters" id="filters">
+        <button class="active" data-filter="all">All</button>
+        <button data-filter="live">Live</button>
+        <button data-filter="draft">Draft</button>
+        <button data-filter="review">Needs review</button>
+        <button data-filter="blocked">Blocked</button>
+      </div>
+    </div>
+
+    <section class="grid" id="grid"></section>
+  </main>
+
+  <footer>Parc Claude · Vive le contenu</footer>
+
+  <script>
+    const STATUS = {
+      live:    { label: "Live",         color: "var(--live)" },
+      draft:   { label: "Draft",        color: "var(--draft)" },
+      review:  { label: "Needs review", color: "var(--review)" },
+      blocked: { label: "Blocked",      color: "var(--blocked)" }
+    };
+
+    // Sample data
+    const pages = [
+      { name: "T-Rex Rampage",                           section: "Attractions",  status: "live",    owner: "Amélie Laurent",  updated: "2026-09-28" },
+      { name: "Pterodactyl Plunge Drop Tower",           section: "Attractions",  status: "review",  owner: "Julien Moreau",   updated: "2026-09-26" },
+      { name: "KT Boundary: The Extinction Event Coaster", section: "Attractions", status: "draft",  owner: "Amélie Laurent",  updated: "2026-09-22" },
+      { name: "Day Passes",                section: "Tickets",      status: "live",    owner: "Camille Dubois",  updated: "2026-09-29" },
+      { name: "Season Passes",             section: "Tickets",      status: "blocked", owner: "Camille Dubois",  updated: "2026-09-15" },
+      { name: "Group & School Bookings",   section: "Tickets",      status: "review",  owner: "Hugo Lefèvre",    updated: "2026-09-24" },
+      { name: "Opening Hours",             section: "Visit Us",     status: "live",    owner: "Léa Martin",      updated: "2026-09-30" },
+      { name: "Getting Here",              section: "Visit Us",     status: "live",    owner: "Léa Martin",      updated: "2026-09-10" },
+      { name: "Accessibility Guide",       section: "Visit Us",     status: "blocked", owner: "Hugo Lefèvre",    updated: "2026-09-05" },
+      { name: "Café de la Place",          section: "Food & Drink", status: "live",    owner: "Chloé Bernard",   updated: "2026-09-18" },
+      { name: "Crêperie Bretonne",         section: "Food & Drink", status: "draft",   owner: "Chloé Bernard",   updated: "2026-09-27" },
+      { name: "Dietary Requirements",      section: "Food & Drink", status: "review",  owner: "Julien Moreau",   updated: "2026-09-21" }
+    ];
+
+    const grid = document.getElementById("grid");
+    const stats = document.getElementById("stats");
+    const count = document.getElementById("count");
+
+    const initials = n => n.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+    const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+    const state = { status: "all", section: "all", query: "", sort: "newest" };
+
+    function renderSummary() {
+      const counts = Object.fromEntries(Object.keys(STATUS).map(k => [k, pages.filter(p => p.status === k).length]));
+
+      const total = `<div class="stat" style="--c: var(--bleu)"><div class="num">${pages.length}</div><div class="lbl">Total</div></div>`;
+      stats.innerHTML = total + Object.entries(STATUS).map(([key, s]) =>
+        `<div class="stat" style="--c: ${s.color}"><div class="num">${counts[key]}</div><div class="lbl">${s.label}</div></div>`
+      ).join("");
+
+      // Launch ready = share of pages that are live
+      const pct = Math.round((counts.live / pages.length) * 100);
+      document.getElementById("pct").textContent = `${pct}%`;
+      const bar = document.getElementById("bar");
+      bar.setAttribute("aria-valuenow", pct);
+      bar.setAttribute("aria-label", `${pct}% of pages launch ready`);
+      bar.innerHTML = Object.entries(STATUS)
+        .filter(([key]) => counts[key])
+        .map(([key, s]) => `<span style="width:${(counts[key] / pages.length) * 100}%; background:${s.color}" title="${s.label}: ${counts[key]}"></span>`)
+        .join("");
+      document.getElementById("legend").innerHTML = Object.entries(STATUS)
+        .map(([key, s]) => `<span><i style="--c:${s.color}"></i>${s.label} ${counts[key]}</span>`)
+        .join("");
+    }
+
+    function populateSections() {
+      const select = document.getElementById("section");
+      [...new Set(pages.map(p => p.section))].forEach(s => select.add(new Option(s, s)));
+    }
+
+    function renderCards() {
+      const q = state.query.trim().toLowerCase();
+      const list = pages
+        .filter(p => state.status === "all" || p.status === state.status)
+        .filter(p => state.section === "all" || p.section === state.section)
+        .filter(p => !q || `${p.name} ${p.owner} ${p.section}`.toLowerCase().includes(q))
+        .sort((a, b) => state.sort === "newest"
+          ? b.updated.localeCompare(a.updated)
+          : a.updated.localeCompare(b.updated));
+
+      const label = state.status === "all" ? "All pages" : STATUS[state.status].label;
+      const where = state.section === "all" ? "" : ` · ${state.section}`;
+      count.textContent = `${label}${where} (${list.length})`;
+
+      if (!list.length) {
+        grid.innerHTML = `<p class="empty">No pages match these filters.</p>`;
+        return;
+      }
+
+      grid.innerHTML = list.map(p => `
+        <article class="card s-${p.status}">
+          <div class="card-top">
+            <span class="section">${p.section}</span>
+            <span class="badge">${STATUS[p.status].label}</span>
+          </div>
+          <h3>${p.name}</h3>
+          <div class="meta">
+            <div class="owner">
+              <div class="avatar" aria-hidden="true">${initials(p.owner)}</div>
+              <span title="${p.owner}">${p.owner}</span>
+            </div>
+            <time class="date" datetime="${p.updated}">${fmtDate(p.updated)}</time>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    document.getElementById("filters").addEventListener("click", e => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      document.querySelectorAll("#filters button").forEach(b => b.classList.toggle("active", b === btn));
+      state.status = btn.dataset.filter;
+      renderCards();
+    });
+
+    document.getElementById("search").addEventListener("input", e => { state.query = e.target.value; renderCards(); });
+    document.getElementById("section").addEventListener("change", e => { state.section = e.target.value; renderCards(); });
+    document.getElementById("sort").addEventListener("change", e => { state.sort = e.target.value; renderCards(); });
+
+    populateSections();
+    renderSummary();
+    renderCards();
+  </script>
+</body>
+</html>
