@@ -12,6 +12,7 @@
   --accent: #0f7a63;
   --accent-soft: #dcefe9;
   --warn: #b5541c;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s-other: #9aa5a2;
   --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
@@ -20,12 +21,14 @@
   :root:not([data-theme="light"]) {
     --bg: #101816; --surface: #17221f; --fg: #e4ece9; --muted: #93a6a0;
     --line: #2a3a36; --accent: #45c2a2; --accent-soft: #1d3a33; --warn: #f0935a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s-other: #5f6e6a;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #101816; --surface: #17221f; --fg: #e4ece9; --muted: #93a6a0;
   --line: #2a3a36; --accent: #45c2a2; --accent-soft: #1d3a33; --warn: #f0935a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s-other: #5f6e6a;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -70,6 +73,19 @@ tr:last-child td { border-bottom: 0; }
 .barcell { width: 30%; min-width: 80px; }
 tr.top td:first-child { font-weight: 600; }
 
+.pie { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; position: relative; }
+.pie svg { width: 150px; height: 150px; flex: none; max-width: 100%; }
+.pie path { stroke: var(--surface); stroke-width: 2; cursor: default; transition: opacity .12s; }
+.pie svg:hover path { opacity: .55; }
+.pie svg path:hover { opacity: 1; }
+.pie .center-num { font-family: var(--font-display); font-weight: 700; font-size: 17px; fill: var(--fg); }
+.pie .center-lbl { font-size: 10px; fill: var(--muted); letter-spacing: .06em; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1 1 140px; min-width: 0; }
+.legend li { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; font-size: 0.9rem; }
+.legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+.legend .pct { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 0.82rem; padding: 6px 9px; border-radius: 6px; white-space: nowrap; }
+
 .myth { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; display: grid; gap: 8px; }
 .myth .claim { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; text-decoration: line-through; text-decoration-color: var(--warn); text-decoration-thickness: 2px; }
 .myth p { margin: 0; max-width: 68ch; }
@@ -109,6 +125,11 @@ tr.top td:first-child { font-weight: 600; }
     </div>
     <div class="panel">
       <h2>Traffic sources</h2>
+      <div class="pie" id="pie" aria-label="Share of visits by traffic source">
+        <svg id="pieSvg" viewBox="0 0 150 150" role="img"></svg>
+        <ul class="legend" id="pieLegend"></ul>
+        <div class="tip" id="pieTip" hidden></div>
+      </div>
       <div class="scroll"><table id="sourcesTable"></table></div>
     </div>
   </section>
@@ -302,9 +323,57 @@ function render(d, name, isSample) {
   $("pagesTable").innerHTML = `<thead><tr><th>Page</th><th class="num">Visits</th><th></th><th class="num">Bounce</th><th class="num">Conv.</th></tr></thead><tbody>` +
     d.pages.map((p, i) => `<tr class="${i === 0 ? "top" : ""}"><td>${esc(p.name)}</td><td class="num">${fmtInt(p.visits)}</td><td class="barcell"><div class="bar" style="width:${(p.visits / maxV * 100).toFixed(1)}%"></div></td><td class="num">${fmtPct(p.bounce)}</td><td class="num">${fmtPct(p.rate)}</td></tr>`).join("") + "</tbody>";
 
+  const colorOf = renderPie(d);
   $("sourcesTable").innerHTML = `<thead><tr><th>Source</th><th class="num">Visits</th><th class="num">Conversions</th><th class="num">Rate</th></tr></thead><tbody>` +
-    d.sources.map((s, i) => `<tr class="${i === 0 ? "top" : ""}"><td>${esc(prettySource(s.name))}</td><td class="num">${fmtInt(s.visits)}</td><td class="num">${fmtInt(s.conv)}</td><td class="num">${fmtPct(s.rate)}</td></tr>`).join("") + "</tbody>";
+    d.sources.map((s, i) => `<tr class="${i === 0 ? "top" : ""}"><td><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;background:${colorOf(s.name)}"></span>${esc(prettySource(s.name))}</td><td class="num">${fmtInt(s.visits)}</td><td class="num">${fmtInt(s.conv)}</td><td class="num">${fmtPct(s.rate)}</td></tr>`).join("") + "</tbody>";
 }
+
+// Donut of visit share by source. Three named slices at most; any further sources fold into "Other".
+function renderPie(d) {
+  const SLOTS = ["var(--s1)", "var(--s2)", "var(--s3)"];
+  const byVisits = [...d.sources].sort((a, b) => b.visits - a.visits);
+  let slices = byVisits.slice(0, 3).map((s, i) => ({ label: prettySource(s.name), key: s.name, visits: s.visits, color: SLOTS[i] }));
+  const rest = byVisits.slice(3);
+  if (rest.length) slices.push({ label: `Other (${rest.length})`, key: null, visits: rest.reduce((a, s) => a + s.visits, 0), color: "var(--s-other)" });
+  const colorMap = new Map(byVisits.map((s, i) => [s.name, SLOTS[i] || "var(--s-other)"]));
+
+  const cx = 75, cy = 75, R = 72, r = 44, total = d.totalVisits;
+  const pt = (rad, a) => [cx + rad * Math.sin(a), cy - rad * Math.cos(a)];
+  let a0 = 0, paths = "";
+  slices.forEach((s, i) => {
+    const frac = s.visits / total;
+    if (frac >= 0.9999) {
+      paths += `<path data-i="${i}" fill="${s.color}" fill-rule="evenodd" d="M${cx} ${cy - R}A${R} ${R} 0 1 1 ${cx - 0.01} ${cy - R}ZM${cx} ${cy - r}A${r} ${r} 0 1 0 ${cx + 0.01} ${cy - r}Z"></path>`;
+      return;
+    }
+    const a1 = a0 + frac * Math.PI * 2, big = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(R, a0), [x1, y1] = pt(R, a1), [x2, y2] = pt(r, a1), [x3, y3] = pt(r, a0);
+    paths += `<path data-i="${i}" fill="${s.color}" d="M${x0} ${y0}A${R} ${R} 0 ${big} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${big} 0 ${x3} ${y3}Z"></path>`;
+    a0 = a1;
+  });
+  const svg = $("pieSvg");
+  svg.innerHTML = paths +
+    `<text class="center-num" x="75" y="77" text-anchor="middle">${fmtCompact(total)}</text>` +
+    `<text class="center-lbl" x="75" y="92" text-anchor="middle">VISITS</text>`;
+  svg.setAttribute("aria-label", slices.map(s => `${s.label} ${fmtPct(s.visits / total)}`).join(", "));
+
+  $("pieLegend").innerHTML = slices.map(s =>
+    `<li><span class="sw" style="background:${s.color}"></span><span>${esc(s.label)}</span><span class="pct">${fmtPct(s.visits / total)}</span></li>`).join("");
+
+  const tip = $("pieTip"), box = $("pie");
+  svg.onmousemove = e => {
+    const i = e.target.dataset && e.target.dataset.i;
+    if (i == null) { tip.hidden = true; return; }
+    const s = slices[i], b = box.getBoundingClientRect();
+    tip.innerHTML = `<strong>${esc(s.label)}</strong> · ${fmtInt(s.visits)} visits · ${fmtPct(s.visits / total)}`;
+    tip.hidden = false;
+    tip.style.left = Math.min(e.clientX - b.left + 12, b.width - tip.offsetWidth - 8) + "px";
+    tip.style.top = (e.clientY - b.top + 14) + "px";
+  };
+  svg.onmouseleave = () => { tip.hidden = true; };
+  return name => colorMap.get(name) || "var(--s-other)";
+}
+const fmtCompact = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : fmtInt(n);
 
 function load(text, name, isSample) {
   try { render(analyse(text), name, isSample); }
